@@ -188,4 +188,4 @@ $(GOTIP_FUZZ): $(GOTIP)
 	@touch $@
 
 .PHONY: gotipfuzz
-gotip: $(GOTIP_FUZZ)
+gotipfuzz: $(GOTIP_FUZZ)
