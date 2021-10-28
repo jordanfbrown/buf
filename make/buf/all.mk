@@ -142,21 +142,6 @@ endif
 	$(SED_I) "s/golang:1\.[0-9][0-9]*\.[0-9][0-9]*/golang:$(GOVERSION)/g" $(shell git-ls-files-unstaged | grep \.mk$)
 	$(SED_I) "s/go-version: 1\.[0-9][0-9]*\.[0-9][0-9]*/go-version: $(GOVERSION)/g" $(shell git-ls-files-unstaged | grep \.github\/workflows | grep -v previous.yaml)
 
-.PHONY: fuzz
-fuzz: $(GOTIP_FUZZ)
-	export HOME=$(GOTIP_FUZZ_HOME)
-ifdef FUZZTIME
-	$(CACHE_BIN)/gotip test -run ^$$ -fuzz Fuzz -fuzztime $(FUZZTIME) ./private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting
-else
-	$(CACHE_BIN)/gotip test -run ^$$ -fuzz Fuzz ./private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting
-endif
-
-.PHONY: fuzztest
-fuzztest: $(GOTIP_FUZZ)
-	HOME=$(GOTIP_FUZZ_HOME) \
-		$(CACHE_BIN)/gotip test -run Fuzz \
-		./private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting
-
 # Settable
 # https://github.com/golang/dl/commits/master 20211007 checked 20211028
 GOTIP_VERSION ?= 6589945b0d1123571d5e8d78ca183133b535230f
@@ -189,3 +174,19 @@ $(GOTIP_FUZZ): $(GOTIP)
 
 .PHONY: gotipfuzz
 gotipfuzz: $(GOTIP_FUZZ)
+
+.PHONY: fuzz
+fuzz: $(GOTIP_FUZZ)
+	export HOME=$(GOTIP_FUZZ_HOME)
+ifdef FUZZTIME
+	$(CACHE_BIN)/gotip test -run ^$$ -fuzz Fuzz -fuzztime $(FUZZTIME) ./private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting
+else
+	$(CACHE_BIN)/gotip test -run ^$$ -fuzz Fuzz ./private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting
+endif
+
+.PHONY: fuzztest
+fuzztest: $(GOTIP_FUZZ)
+	HOME=$(GOTIP_FUZZ_HOME) \
+		$(CACHE_BIN)/gotip test -run Fuzz \
+		./private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting
+
