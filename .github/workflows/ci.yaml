@@ -57,11 +57,11 @@ jobs:
           key: ${{ runner.os }}-buf-${{ hashFiles('**/go.sum', '/make/**') }}
           restore-keys: |
             ${{ runner.os }}-buf-
-      - name: make gotipfuzz
-        run: make gotipfuzz
       - name: make-test
         if: success()
-        run: make test gotip gotipfuzz fuzztest
+        run: |
+          make test
+          make fuzztest
   docker:
     runs-on: ubuntu-20.04
     needs:
