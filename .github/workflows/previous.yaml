@@ -30,4 +30,4 @@ jobs:
             ${{ runner.os }}-buf-
       - name: make-test
         if: success()
-        run: make test
+        run: make test fuzztest

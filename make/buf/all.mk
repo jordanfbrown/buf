@@ -43,7 +43,6 @@ include make/go/dep_minisign.mk
 include make/go/dep_protoc.mk
 include make/go/dep_protoc_gen_go.mk
 include make/go/dep_protoc_gen_go_grpc.mk
-include make/go/dep_go_fuzz.mk
 include make/go/go.mk
 include make/go/docker.mk
 include make/go/buf.mk
@@ -143,15 +142,44 @@ endif
 	$(SED_I) "s/golang:1\.[0-9][0-9]*\.[0-9][0-9]*/golang:$(GOVERSION)/g" $(shell git-ls-files-unstaged | grep \.mk$)
 	$(SED_I) "s/go-version: 1\.[0-9][0-9]*\.[0-9][0-9]*/go-version: $(GOVERSION)/g" $(shell git-ls-files-unstaged | grep \.github\/workflows | grep -v previous.yaml)
 
-.PHONY: gofuzz
-gofuzz: $(GO_FUZZ)
-	@rm -rf $(TMP)/gofuzz
-	@mkdir -p $(TMP)/gofuzz $(TMP)/gofuzz/corpus
-	# go-fuzz-build requires github.com/dvyukov/go-fuzz be in go.mod, but we don't need that dependency otherwise.
-	# This adds go-fuzz-dep to go.mod, runs go-fuzz-build, then restores go.mod.
-	cp go.mod $(TMP)/go.mod.bak; cp go.sum $(TMP)/go.sum.bak
-	go get github.com/dvyukov/go-fuzz/go-fuzz-dep@$(GO_FUZZ_VERSION)
-	cd private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting; go-fuzz-build -o $(abspath $(TMP))/gofuzz/gofuzz.zip
-	rm go.mod go.sum; mv $(TMP)/go.mod.bak go.mod; mv $(TMP)/go.sum.bak go.sum
-	cp private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting/corpus/* $(TMP)/gofuzz/corpus
-	go-fuzz -bin $(TMP)/gofuzz/gofuzz.zip -workdir $(TMP)/gofuzz $(GO_FUZZ_EXTRA_ARGS)
+.PHONY: fuzz
+fuzz: $(GOTIP_FUZZ)
+	export HOME=$(GOTIP_FUZZ_HOME)
+ifdef FUZZTIME
+	$(CACHE_BIN)/gotip test -run ^$$ -fuzz Fuzz -fuzztime $(FUZZTIME) ./private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting
+else
+	$(CACHE_BIN)/gotip test -run ^$$ -fuzz Fuzz ./private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting
+endif
+
+.PHONY: fuzztest
+fuzztest: $(GOTIP_FUZZ)
+	HOME=$(GOTIP_FUZZ_HOME) \
+		$(CACHE_BIN)/gotip test -run Fuzz \
+		./private/bufpkg/bufimage/bufimagebuild/bufimagebuildtesting
+
+# Settable
+# https://github.com/golang/dl/commits/master 20211007 checked 20211028
+GOTIP_VERSION ?= 6589945b0d1123571d5e8d78ca183133b535230f
+
+GOTIP := $(CACHE_VERSIONS)/GOTIP/$(GOTIP_VERSION)
+$(GOTIP):
+	@rm -f $(CACHE_BIN)/goreleaser
+	GOBIN=$(CACHE_BIN) go install golang.org/dl/gotip@$(GOTIP_VERSION)
+	@rm -rf $(dir $@)
+	@mkdir -p $(dir $@)
+	@touch $@
+
+# Settable
+# https://go-review.googlesource.com/q/project:exp+branch:master+status:merged 20211028 checked 20211028
+GOTIP_FUZZ_CL ?= 344955
+
+GOTIP_FUZZ_HOME := $(CACHE)/gotip_fuzz
+$(GOTIP_FUZZ_HOME):
+	@mkdir -p $(GOTIP_FUZZ_HOME)
+
+GOTIP_FUZZ := $(CACHE_VERSIONS)/GOTIP_FUZZ/$(GOTIP_FUZZ_CL)
+$(GOTIP_FUZZ): $(GOTIP)
+	(yes || true) | HOME=$(GOTIP_FUZZ_HOME) $(CACHE_BIN)/gotip download $(GOTIP_FUZZ_CL)
+	@rm -rf $(dir $@)
+	@mkdir -p $(dir $@)
+	@touch $@

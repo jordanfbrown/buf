@@ -17,7 +17,7 @@ package testingextended
 import "testing"
 
 // SkipIfShort skips the test if testing.short is set.
-func SkipIfShort(t *testing.T) {
+func SkipIfShort(t testing.TB) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}

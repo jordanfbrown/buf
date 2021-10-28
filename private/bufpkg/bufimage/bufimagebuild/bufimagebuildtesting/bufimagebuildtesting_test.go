@@ -12,14 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.18
+// +build go1.18
+
 package bufimagebuildtesting
 
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/bufbuild/buf/private/bufpkg/bufanalysis"
 	"github.com/bufbuild/buf/private/bufpkg/bufimage"
@@ -31,26 +36,40 @@ import (
 	"github.com/bufbuild/buf/private/pkg/command"
 	"github.com/bufbuild/buf/private/pkg/prototesting"
 	"github.com/bufbuild/buf/private/pkg/storage/storageos"
+	"github.com/bufbuild/buf/private/pkg/testingextended"
 	"github.com/bufbuild/buf/private/pkg/tmp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/tools/txtar"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// Fuzz is the entrypoint for the fuzzer.
-// We use https://github.com/dvyukov/go-fuzz for fuzzing.
-// Please follow the instructions
-// in their README for help with running the fuzz targets.
-func Fuzz(data []byte) int {
+func Fuzz(f *testing.F) {
+	testingextended.SkipIfShort(f)
+	corpus := filepath.FromSlash("testdata/corpus")
+	require.NoError(f, filepath.Walk(corpus, func(path string, info fs.FileInfo, err error) error {
+		require.NoError(f, err)
+		if info.IsDir() {
+			return nil
+		}
+		data, err := os.ReadFile(filepath.Join(corpus, info.Name()))
+		require.NoError(f, err)
+		f.Add(data)
+		return nil
+	}))
+
 	ctx := context.Background()
 	runner := command.NewRunner()
-	result, err := fuzz(ctx, runner, data)
-	if err != nil {
-		// data was invalid in some way
-		return -1
-	}
-	return result.panicOrN(ctx)
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		result, err := fuzz(ctx, runner, data)
+		if err != nil {
+			return
+		}
+		assert.NoError(t, result.error(ctx))
+	})
 }
 
 func fuzz(ctx context.Context, runner command.Runner, data []byte) (_ *fuzzResult, retErr error) {
@@ -197,19 +216,6 @@ func newFuzzResult(
 		actualProtocFileDescriptorSet: actualProtocFileDescriptorSet,
 		image:                         image,
 	}
-}
-
-// panicOrN panics if there is an error or returns the appropriate value for Fuzz to return.
-func (f *fuzzResult) panicOrN(ctx context.Context) int {
-	if err := f.error(ctx); err != nil {
-		panic(err.Error())
-	}
-	// This will return 1 for valid protobufs and 0 for invalid in order to encourage the fuzzer to generate more
-	// realistic looking data.
-	if f.protocErr == nil {
-		return 1
-	}
-	return 0
 }
 
 // error returns an error that should cause Fuzz to panic.

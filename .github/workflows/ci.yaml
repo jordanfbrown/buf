@@ -59,7 +59,7 @@ jobs:
             ${{ runner.os }}-buf-
       - name: make-test
         if: success()
-        run: make test
+        run: make test fuzztest
   docker:
     runs-on: ubuntu-20.04
     needs:
