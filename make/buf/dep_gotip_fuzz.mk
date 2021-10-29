@@ -10,7 +10,7 @@ GOTIP_VERSION ?= 6589945b0d1123571d5e8d78ca183133b535230f
 
 GOTIP := $(CACHE_VERSIONS)/GOTIP/$(GOTIP_VERSION)
 $(GOTIP):
-	@rm -f $(CACHE_BIN)/goreleaser
+	@rm -f $(CACHE_BIN)/gotip
 	GOBIN=$(CACHE_BIN) go install golang.org/dl/gotip@$(GOTIP_VERSION)
 	@rm -rf $(dir $@)
 	@mkdir -p $(dir $@)

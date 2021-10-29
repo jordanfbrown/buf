@@ -54,14 +54,16 @@ jobs:
             ~/.cache/buf/${{ runner.os }}/x86_64/go/pkg/mod
             ~/.cache/buf/${{ runner.os }}/x86_64/include
             ~/.cache/buf/${{ runner.os }}/x86_64/versions
+            ~/.cache/buf/${{ runner.os }}/x86_64/gotip_fuzz
           key: ${{ runner.os }}-buf-${{ hashFiles('**/go.sum', '/make/**') }}
           restore-keys: |
             ${{ runner.os }}-buf-
       - name: make-test
         if: success()
-        run: |
-          make test
-          make fuzztest
+        run: make test
+      - name: make-fuzztest
+        if: success()
+        run: make fuzztest
   docker:
     runs-on: ubuntu-20.04
     needs:
