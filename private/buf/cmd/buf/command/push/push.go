@@ -37,6 +37,8 @@ const (
 	//branchFlagShortName = "b"
 	tagFlagName         = "tag"
 	tagFlagShortName    = "t"
+	trackFlagName       = "track"
+	noTrackFlagName     = "no-track"
 	errorFormatFlagName = "error-format"
 )
 
@@ -64,7 +66,9 @@ func NewCommand(
 type flags struct {
 	//Branch      string
 	Tags        []string
+	Tracks      []string
 	ErrorFormat string
+	NoTrack     bool
 	// special
 	InputHashtag string
 }
@@ -88,6 +92,20 @@ func (f *flags) Bind(flagSet *pflag.FlagSet) {
 		tagFlagShortName,
 		nil,
 		"Create a tag for the pushed commit. If specified multiple times, multiple tags will be created.",
+	)
+	flagSet.StringSliceVarP(
+		&f.Tracks,
+		trackFlagName,
+		"",
+		nil,
+		"Append the pushed commit to this track. The track will be created if it does not already exist. If specified multiple times, multiple tracks will be appended.",
+	)
+	flagSet.BoolVarP(
+		&f.NoTrack,
+		noTrackFlagName,
+		"",
+		false,
+		"Do not append the pushed commit to any track.",
 	)
 	flagSet.StringVar(
 		&f.ErrorFormat,
@@ -115,6 +133,9 @@ func run(
 	if err != nil {
 		return err
 	}
+	if flags.NoTrack && len(flags.Tracks) > 0 {
+		return appcmd.NewInvalidArgumentErrorf("cannot specify both --%s and --%s", noTrackFlagName, trackFlagName)
+	}
 	storageosProvider := storageos.NewProvider(storageos.ProviderWithSymlinks())
 	runner := command.NewRunner()
 	// We are pushing to the BSR, this module has to be independently buildable
@@ -141,6 +162,15 @@ func run(
 	if err != nil {
 		return err
 	}
+
+	tracks := flags.Tracks
+	switch {
+	case flags.NoTrack:
+		tracks = nil
+	case len(tracks) == 0:
+		tracks = []string{bufmoduleref.DefaultTrack}
+	}
+
 	localModulePin, err := service.Push(
 		ctx,
 		moduleIdentity.Owner(),
@@ -149,7 +179,7 @@ func run(
 		bufmoduleref.MainBranch,
 		protoModule,
 		flags.Tags,
-		nil,
+		tracks,
 	)
 	if err != nil {
 		if rpc.GetErrorCode(err) == rpc.ErrorCodeAlreadyExists {

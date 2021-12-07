@@ -45,6 +45,8 @@ import (
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/beta/registry/template/templatelist"
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/beta/registry/template/templateversion/templateversioncreate"
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/beta/registry/template/templateversion/templateversionlist"
+	"github.com/bufbuild/buf/private/buf/cmd/buf/command/beta/registry/track/trackcreate"
+	"github.com/bufbuild/buf/private/buf/cmd/buf/command/beta/registry/track/tracklist"
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/breaking"
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/build"
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/config/configinit"
@@ -190,6 +192,14 @@ func NewRootCommand(name string) *appcmd.Command {
 								SubCommands: []*appcmd.Command{
 									tagcreate.NewCommand("create", builder),
 									taglist.NewCommand("list", builder),
+								},
+							},
+							{
+								Use:   "track",
+								Short: "Repository track commands.",
+								SubCommands: []*appcmd.Command{
+									trackcreate.NewCommand("create", builder),
+									tracklist.NewCommand("list", builder),
 								},
 							},
 							{

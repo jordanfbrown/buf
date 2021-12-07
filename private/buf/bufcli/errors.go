@@ -114,10 +114,10 @@ func NewRepositoryNameAlreadyExistsError(name string) error {
 	return fmt.Errorf("a repository named %q already exists", name)
 }
 
-// NewBranchOrTagNameAlreadyExistsError informs the user that a branch
+// NewBranchTrackOrTagNameAlreadyExistsError informs the user that a branch, track
 // or tag with that name already exists.
-func NewBranchOrTagNameAlreadyExistsError(name string) error {
-	return fmt.Errorf("a branch or tag named %q already exists", name)
+func NewBranchTrackOrTagNameAlreadyExistsError(name string) error {
+	return fmt.Errorf("a tag, track or branch named %q already exists", name)
 }
 
 // NewOrganizationNotFoundError informs the user that an organization with

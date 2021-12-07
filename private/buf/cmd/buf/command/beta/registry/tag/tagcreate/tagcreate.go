@@ -116,7 +116,7 @@ func run(
 	)
 	if err != nil {
 		if rpc.GetErrorCode(err) == rpc.ErrorCodeAlreadyExists {
-			return bufcli.NewBranchOrTagNameAlreadyExistsError(tag)
+			return bufcli.NewBranchTrackOrTagNameAlreadyExistsError(tag)
 		}
 		if rpc.GetErrorCode(err) == rpc.ErrorCodeNotFound {
 			return bufcli.NewModuleReferenceNotFoundError(moduleReference)

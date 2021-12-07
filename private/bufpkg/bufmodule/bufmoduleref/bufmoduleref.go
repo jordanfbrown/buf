@@ -31,6 +31,9 @@ const (
 	// MainBranch is the name of the branch created for every repository.
 	// This is the default branch used if no branch or commit is specified.
 	MainBranch = "main"
+
+	// DefaultTrack is the default track.
+	DefaultTrack = "main"
 )
 
 // FileInfo contains module file info.
