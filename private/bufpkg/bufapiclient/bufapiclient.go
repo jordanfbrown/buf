@@ -21,6 +21,7 @@ import (
 
 	"github.com/bufbuild/buf/private/gen/proto/apiclient/buf/alpha/registry/v1alpha1/registryv1alpha1apiclient"
 	"github.com/bufbuild/buf/private/gen/proto/apiclientgrpc/buf/alpha/registry/v1alpha1/registryv1alpha1apiclientgrpc"
+	registryv1alpha1 "github.com/bufbuild/buf/private/gen/proto/go/buf/alpha/registry/v1alpha1"
 	"github.com/bufbuild/buf/private/pkg/transport/grpc/grpcclient"
 	"github.com/bufbuild/buf/private/pkg/transport/http/httpclient"
 	"go.uber.org/zap"
@@ -107,4 +108,39 @@ func NewHTTPClient(
 		),
 		httpclient.ClientWithObservability(),
 	)
+}
+
+func GetRepositoryOwnerNames(
+	ctx context.Context,
+	apiProvider registryv1alpha1apiclient.OwnerServiceProvider,
+	remote string,
+	repositories ...*registryv1alpha1.Repository,
+) (map[string]string, error) {
+	service, err := apiProvider.NewOwnerService(ctx, remote)
+	if err != nil {
+		return nil, err
+	}
+	ownerIDs := make([]string, len(repositories))
+	for i, repository := range repositories {
+		switch owner := repository.Owner.(type) {
+		case *registryv1alpha1.Repository_OrganizationId:
+			ownerIDs[i] = owner.OrganizationId
+		case *registryv1alpha1.Repository_UserId:
+			ownerIDs[i] = owner.UserId
+		}
+	}
+	resp, err := service.GetOwnersByID(ctx, ownerIDs)
+	if err != nil {
+		return nil, err
+	}
+	ownerNames := make(map[string]string, len(resp))
+	for _, o := range resp {
+		switch owner := o.Owner.(type) {
+		case *registryv1alpha1.Owner_User:
+			ownerNames[owner.User.Id] = owner.User.Username
+		case *registryv1alpha1.Owner_Organization:
+			ownerNames[owner.Organization.Id] = owner.Organization.Name
+		}
+	}
+	return ownerNames, nil
 }

@@ -20,6 +20,7 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/bufbuild/buf/private/gen/proto/apiclient/buf/alpha/registry/v1alpha1/registryv1alpha1apiclient"
 	registryv1alpha1 "github.com/bufbuild/buf/private/gen/proto/go/buf/alpha/registry/v1alpha1"
 	"github.com/bufbuild/buf/private/pkg/protoencoding"
 	"github.com/bufbuild/buf/private/pkg/stringutil"
@@ -80,16 +81,18 @@ func NewOrganizationPrinter(address string, writer io.Writer) OrganizationPrinte
 
 // RepositoryPrinter is a repository printer.
 type RepositoryPrinter interface {
-	PrintRepository(ctx context.Context, format Format, repository *registryv1alpha1.Repository) error
-	PrintRepositories(ctx context.Context, format Format, nextPageToken string, repositories ...*registryv1alpha1.Repository) error
+	PrintRepository(ctx context.Context, format Format, message *registryv1alpha1.Repository) error
+	PrintRepositories(ctx context.Context, format Format, nextPageToken string, messages ...*registryv1alpha1.Repository) error
 }
 
 // NewRepositoryPrinter returns a new RepositoryPrinter.
 func NewRepositoryPrinter(
 	address string,
 	writer io.Writer,
+	remote string,
+	apiProvider registryv1alpha1apiclient.OwnerServiceProvider,
 ) RepositoryPrinter {
-	return newRepositoryPrinter(address, writer)
+	return newRepositoryPrinter(address, writer, remote, apiProvider)
 }
 
 // RepositoryBranchPrinter is a repository branch printer.

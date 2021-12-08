@@ -123,5 +123,7 @@ func run(
 	return bufprint.NewRepositoryPrinter(
 		remote,
 		container.Stdout(),
+		remote,
+		apiProvider,
 	).PrintRepositories(ctx, format, nextPageToken, repositories...)
 }
