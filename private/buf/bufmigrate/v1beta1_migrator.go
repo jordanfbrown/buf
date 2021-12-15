@@ -215,7 +215,7 @@ func (m *v1beta1Migrator) maybeMigrateConfig(dirPath string) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		v1Config.Breaking.IgnoreOnly, err = convertIgnoreMap(v1beta1Config.Breaking.IgnoreOnly, dirPath, root, pathToProcessed)
+		v1Config.Breaking.IgnoreOnly, err = convertBreakingIgnoreOnly(v1beta1Config.Breaking.IgnoreOnly, dirPath, root, pathToProcessed)
 		if err != nil {
 			return false, err
 		}
@@ -548,4 +548,38 @@ func convertIgnoreMap(ruleToIgnores map[string][]string, dirPath string, root st
 		sort.Strings(ruleToIgnoresForRoot[rule])
 	}
 	return ruleToIgnoresForRoot, nil
+}
+
+func convertBreakingIgnoreOnly(
+	breakingExternalIgnoreOnly *bufbreakingconfig.ExternalIgnoreOnly,
+	dirPath string,
+	root string,
+	pathToProcessed map[string]bool,
+) (*bufbreakingconfig.ExternalIgnoreOnly, error) {
+	if breakingExternalIgnoreOnly == nil {
+		return nil, nil
+	}
+	var ruleToIgnoresForRoot bufbreakingconfig.ExternalIgnoreOnly
+	for _, idPaths := range breakingExternalIgnoreOnly.IDToPaths {
+		breakingIDPaths := bufbreakingconfig.IDPaths{
+			ID: idPaths.ID,
+		}
+		for _, path := range idPaths.Paths {
+			if _, ok := pathToProcessed[path]; !ok {
+				pathToProcessed[path] = false
+			}
+			filePath := filepath.Join(dirPath, root, path)
+			if _, err := os.Stat(filePath); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				}
+				return nil, fmt.Errorf("failed to check for presence of file %s: %w", filePath, err)
+			}
+			pathToProcessed[path] = true
+			breakingIDPaths.Paths = append(breakingIDPaths.Paths, path)
+		}
+		sort.Strings(breakingIDPaths.Paths)
+		ruleToIgnoresForRoot.IDToPaths = append(ruleToIgnoresForRoot.IDToPaths, breakingIDPaths)
+	}
+	return &ruleToIgnoresForRoot, nil
 }

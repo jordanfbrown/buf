@@ -16,9 +16,11 @@ package bufbreakingconfig
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 
 	breakingv1 "github.com/bufbuild/buf/private/gen/proto/go/buf/alpha/breaking/v1"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -56,7 +58,7 @@ func NewConfigV1Beta1(externalConfig ExternalConfigV1Beta1) *Config {
 		Use:                           externalConfig.Use,
 		Except:                        externalConfig.Except,
 		IgnoreRootPaths:               externalConfig.Ignore,
-		IgnoreIDOrCategoryToRootPaths: externalConfig.IgnoreOnly,
+		IgnoreIDOrCategoryToRootPaths: ignoreOnlyMapForExternalIgnoreOnly(externalConfig.IgnoreOnly),
 		IgnoreUnstablePackages:        externalConfig.IgnoreUnstablePackages,
 		Version:                       v1Beta1Version,
 	}
@@ -68,7 +70,7 @@ func NewConfigV1(externalConfig ExternalConfigV1) *Config {
 		Use:                           externalConfig.Use,
 		Except:                        externalConfig.Except,
 		IgnoreRootPaths:               externalConfig.Ignore,
-		IgnoreIDOrCategoryToRootPaths: externalConfig.IgnoreOnly,
+		IgnoreIDOrCategoryToRootPaths: ignoreOnlyMapForExternalIgnoreOnly(externalConfig.IgnoreOnly),
 		IgnoreUnstablePackages:        externalConfig.IgnoreUnstablePackages,
 		Version:                       v1Version,
 	}
@@ -105,7 +107,7 @@ type ExternalConfigV1Beta1 struct {
 	// IgnoreRootPaths
 	Ignore []string `json:"ignore,omitempty" yaml:"ignore,omitempty"`
 	// IgnoreIDOrCategoryToRootPaths
-	IgnoreOnly             map[string][]string `json:"ignore_only,omitempty" yaml:"ignore_only,omitempty"`
+	IgnoreOnly             *ExternalIgnoreOnly `json:"ignore_only,omitempty" yaml:"ignore_only,omitempty"`
 	IgnoreUnstablePackages bool                `json:"ignore_unstable_packages,omitempty" yaml:"ignore_unstable_packages,omitempty"`
 }
 
@@ -116,8 +118,87 @@ type ExternalConfigV1 struct {
 	// IgnoreRootPaths
 	Ignore []string `json:"ignore,omitempty" yaml:"ignore,omitempty"`
 	// IgnoreIDOrCategoryToRootPaths
-	IgnoreOnly             map[string][]string `json:"ignore_only,omitempty" yaml:"ignore_only,omitempty"`
+	IgnoreOnly             *ExternalIgnoreOnly `json:"ignore_only,omitempty" yaml:"ignore_only,omitempty"`
 	IgnoreUnstablePackages bool                `json:"ignore_unstable_packages,omitempty" yaml:"ignore_unstable_packages,omitempty"`
+}
+
+// ExternalIgnoreOnly is an intermediary, ordered structure is used for marshalling/unmarshalling to maintain the
+// ordering of the IgnoreOnly/IgnoreIDOrCategoryToRootPaths map to ensure a deterministic
+// round trip for the config.
+//
+// This needs to be exported for the v1beta1 config migrator.
+type ExternalIgnoreOnly struct {
+	IDToPaths []IDPaths `yaml:",omitempty"`
+}
+
+// IDPaths is an intermediary struct for a rule ID or ceatogory to the paths that are ignored
+// for the check.
+//
+// This needs to be exported for the v1beta1 config migrator.
+type IDPaths struct {
+	ID    string   `yaml:",omitempty"`
+	Paths []string `yaml:",omitempty"`
+}
+
+func (e *ExternalIgnoreOnly) MarshalYAML() (interface{}, error) {
+	if len(e.IDToPaths) == 0 {
+		return nil, nil
+	}
+	var content []*yaml.Node
+	for _, idPaths := range e.IDToPaths {
+		// No paths set for the rule
+		if len(idPaths.Paths) == 0 {
+			continue
+		}
+		// First append the id or category
+		var name yaml.Node
+		name.SetString(idPaths.ID)
+		content = append(content, &name)
+		// Then append the paths as a sequence node
+		content = append(content, newPathsNode(idPaths.Paths))
+	}
+	return &yaml.Node{
+		Kind:    yaml.MappingNode,
+		Style:   yaml.LiteralStyle,
+		Content: content,
+	}, nil
+}
+
+func (e *ExternalIgnoreOnly) UnmarshalYAML(value *yaml.Node) error {
+	if len(value.Content) == 0 {
+		return nil
+	}
+	// Ensure that we are being passed a MappingNode
+	if value.Kind != yaml.MappingNode {
+		return fmt.Errorf("ignore_only must be a YAML map, instead is %v", value.Kind)
+	}
+	// TODO(doria): maybe put a check to make sure things are even... but this should be covered
+	// by the MappingNode check.
+	e.IDToPaths = []IDPaths{}
+	for i := 0; i < len(value.Content); i += 2 {
+		var idPathsEntry IDPaths
+		if err := value.Content[i].Decode(&idPathsEntry.ID); err != nil {
+			return err
+		}
+		if err := value.Content[i+1].Decode(&idPathsEntry.Paths); err != nil {
+			return err
+		}
+		e.IDToPaths = append(e.IDToPaths, idPathsEntry)
+	}
+	return nil
+}
+
+func newPathsNode(paths []string) *yaml.Node {
+	content := make([]*yaml.Node, len(paths))
+	for i, path := range paths {
+		var pathNode yaml.Node
+		pathNode.SetString(path)
+		content[i] = &pathNode
+	}
+	return &yaml.Node{
+		Kind:    yaml.SequenceNode,
+		Content: content,
+	}
 }
 
 // ExternalConfigV1Beta1ForConfig takes a *Config and returns the v1beta1 external config representation.
@@ -126,7 +207,7 @@ func ExternalConfigV1Beta1ForConfig(config *Config) ExternalConfigV1Beta1 {
 		Use:                    config.Use,
 		Except:                 config.Except,
 		Ignore:                 config.IgnoreRootPaths,
-		IgnoreOnly:             config.IgnoreIDOrCategoryToRootPaths,
+		IgnoreOnly:             externalIgnoreOnlyForMap(config.IgnoreIDOrCategoryToRootPaths),
 		IgnoreUnstablePackages: config.IgnoreUnstablePackages,
 	}
 }
@@ -137,7 +218,7 @@ func ExternalConfigV1ForConfig(config *Config) ExternalConfigV1 {
 		Use:                    config.Use,
 		Except:                 config.Except,
 		Ignore:                 config.IgnoreRootPaths,
-		IgnoreOnly:             config.IgnoreIDOrCategoryToRootPaths,
+		IgnoreOnly:             externalIgnoreOnlyForMap(config.IgnoreIDOrCategoryToRootPaths),
 		IgnoreUnstablePackages: config.IgnoreUnstablePackages,
 	}
 }
@@ -152,6 +233,10 @@ func BytesForConfig(config *Config) ([]byte, error) {
 	return json.Marshal(configToJSON(config))
 }
 
+// TODO(doria): with the new ordered external config structure, we can get rid of the configJSON
+// Since the structures are now effectively the same... the only thing that is different is that
+// the version is embedded. I think we can extend the external config structure and then include
+// the version? Something to think about.
 type configJSON struct {
 	Use                           []string      `json:"use,omitempty"`
 	Except                        []string      `json:"except,omitempty"`
@@ -212,4 +297,32 @@ func protoForIgnoreIDOrCategoryToRootPaths(ignoreIDOrCategoryToRootPaths map[str
 		})
 	}
 	return idPathsProto
+}
+
+// ignoreOnlyMapForExternalIgnoreOnly converts an externalIgnoreOnly structure into a map[string][]string.
+//
+// Note that this is not deterministic and will not retain the order from the original config,
+// since it makes use of the `map` structure.
+func ignoreOnlyMapForExternalIgnoreOnly(externalIgnoreOnlyConfig *ExternalIgnoreOnly) map[string][]string {
+	if externalIgnoreOnlyConfig == nil {
+		return nil
+	}
+	ignoreOnlyMap := make(map[string][]string)
+	for _, idPaths := range externalIgnoreOnlyConfig.IDToPaths {
+		ignoreOnlyMap[idPaths.ID] = idPaths.Paths
+	}
+	return ignoreOnlyMap
+}
+
+func externalIgnoreOnlyForMap(ignoreOnlyMap map[string][]string) *ExternalIgnoreOnly {
+	externalIgnoreOnlyConfig := &ExternalIgnoreOnly{
+		IDToPaths: make([]IDPaths, 0, len(ignoreOnlyMap)),
+	}
+	for id, paths := range ignoreOnlyMap {
+		externalIgnoreOnlyConfig.IDToPaths = append(externalIgnoreOnlyConfig.IDToPaths, IDPaths{
+			ID:    id,
+			Paths: paths,
+		})
+	}
+	return externalIgnoreOnlyConfig
 }
