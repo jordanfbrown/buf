@@ -37,6 +37,12 @@ message PushRequest {
   // will be appended to these tracks. If the
   // tracks do not exist, they will be created.
   repeated string tracks = 6;
+  // When true the push will append an existing commit to the specified tracks when all of:
+  //  1. One of more specified tags exist.
+  //  2. The all of the specified tags that exist point to the same commit.
+  //  3. The pushed commit has the same digest as the existing commit.
+  //  4. The target track's head commit has a different digest from the pushed commit.
+  bool copy_if_tag_exists = 7;
 }
 
 message PushResponse {

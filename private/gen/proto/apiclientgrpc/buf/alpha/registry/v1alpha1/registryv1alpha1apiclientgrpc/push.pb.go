@@ -38,6 +38,7 @@ func (s *pushService) Push(
 	module *v1alpha11.Module,
 	tags []string,
 	tracks []string,
+	copyIfTagExists bool,
 ) (localModulePin *v1alpha1.LocalModulePin, _ error) {
 	if s.contextModifier != nil {
 		ctx = s.contextModifier(ctx)
@@ -45,12 +46,13 @@ func (s *pushService) Push(
 	response, err := s.client.Push(
 		ctx,
 		&v1alpha1.PushRequest{
-			Owner:      owner,
-			Repository: repository,
-			Branch:     branch,
-			Module:     module,
-			Tags:       tags,
-			Tracks:     tracks,
+			Owner:           owner,
+			Repository:      repository,
+			Branch:          branch,
+			Module:          module,
+			Tags:            tags,
+			Tracks:          tracks,
+			CopyIfTagExists: copyIfTagExists,
 		},
 	)
 	if err != nil {
