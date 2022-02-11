@@ -150,6 +150,7 @@ func run(
 		protoModule,
 		flags.Tags,
 		tracks,
+		false,
 	)
 	if err != nil {
 		if rpc.GetErrorCode(err) == rpc.ErrorCodeAlreadyExists {
