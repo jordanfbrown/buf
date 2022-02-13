@@ -20,6 +20,7 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/bufbuild/buf/private/bufpkg/bufconfig"
 	"github.com/bufbuild/buf/private/gen/proto/apiclient/buf/alpha/registry/v1alpha1/registryv1alpha1apiclient"
 	registryv1alpha1 "github.com/bufbuild/buf/private/gen/proto/go/buf/alpha/registry/v1alpha1"
 	"github.com/bufbuild/buf/private/pkg/protoencoding"
@@ -156,6 +157,19 @@ type PluginVersionPrinter interface {
 // NewPluginVersionPrinter returns a new NewPluginVersionPrinter.
 func NewPluginVersionPrinter(writer io.Writer) PluginVersionPrinter {
 	return newPluginVersionPrinter(writer)
+}
+
+// ConfigPrinter is a printer for external configurations. In "text" format it prints the raw configuration file.
+// in "json" format it prints the configuration as a JSON object.
+// It is different from the other printers in that the text format doesn't use TabWriter.
+type ConfigPrinter interface {
+	PrintExternalConfigV1Beta1(format Format, config bufconfig.ExternalConfigV1Beta1, raw []byte) error
+	PrintExternalConfigV1(format Format, config bufconfig.ExternalConfigV1, raw []byte) error
+}
+
+// NewConfigPrinter returns a new ConfigPrinter.
+func NewConfigPrinter(writer io.Writer) ConfigPrinter {
+	return newConfigPrinter(writer)
 }
 
 // TemplatePrinter is a printer for Templates.

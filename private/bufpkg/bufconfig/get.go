@@ -30,6 +30,35 @@ func getConfigForBucket(ctx context.Context, readBucket storage.ReadBucket) (_ *
 	ctx, span := trace.StartSpan(ctx, "get_config")
 	defer span.End()
 
+	readObjectCloser, ok, err := getConfigReadObjectCloserForBucket(ctx, readBucket)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		// Did not find anything, return the default.
+		// TODO: change to V1 when we make V1 the default
+		return newConfigV1Beta1(ExternalConfigV1Beta1{})
+	}
+	defer func() {
+		retErr = multierr.Append(retErr, readObjectCloser.Close())
+	}()
+	data, err := io.ReadAll(readObjectCloser)
+	if err != nil {
+		return nil, err
+	}
+	return getConfigForDataInternal(
+		ctx,
+		encoding.UnmarshalYAMLNonStrict,
+		encoding.UnmarshalYAMLStrict,
+		data,
+		readObjectCloser.ExternalPath(),
+	)
+}
+
+func getConfigReadObjectCloserForBucket(
+	ctx context.Context,
+	readBucket storage.ReadBucket,
+) (storage.ReadObjectCloser, bool, error) {
 	// This will be in the order of precedence.
 	var foundConfigFilePaths []string
 	// Go through all valid config file paths and see which ones are present.
@@ -38,7 +67,7 @@ func getConfigForBucket(ctx context.Context, readBucket storage.ReadBucket) (_ *
 	for _, configFilePath := range AllConfigFilePaths {
 		exists, err := storage.Exists(ctx, readBucket, configFilePath)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if exists {
 			foundConfigFilePaths = append(foundConfigFilePaths, configFilePath)
@@ -46,30 +75,19 @@ func getConfigForBucket(ctx context.Context, readBucket storage.ReadBucket) (_ *
 	}
 	switch len(foundConfigFilePaths) {
 	case 0:
-		// Did not find anything, return the default.
-		// TODO: change to V1 when we make V1 the default
-		return newConfigV1Beta1(ExternalConfigV1Beta1{})
+		// Did not find anything, return without writing anything.
+		return nil, false, nil
 	case 1:
 		readObjectCloser, err := readBucket.Get(ctx, foundConfigFilePaths[0])
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		defer func() {
-			retErr = multierr.Append(retErr, readObjectCloser.Close())
-		}()
-		data, err := io.ReadAll(readObjectCloser)
-		if err != nil {
-			return nil, err
-		}
-		return getConfigForDataInternal(
-			ctx,
-			encoding.UnmarshalYAMLNonStrict,
-			encoding.UnmarshalYAMLStrict,
-			data,
-			readObjectCloser.ExternalPath(),
-		)
+		return readObjectCloser, true, nil
 	default:
-		return nil, fmt.Errorf("only one configuration file can exist but found multiple configuration files: %s", stringutil.SliceToString(foundConfigFilePaths))
+		return nil, false, fmt.Errorf(
+			"only one configuration file can exist but found multiple configuration files: %s",
+			stringutil.SliceToString(foundConfigFilePaths),
+		)
 	}
 }
 

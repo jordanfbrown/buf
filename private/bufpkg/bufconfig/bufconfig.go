@@ -79,6 +79,16 @@ func GetConfigForBucket(ctx context.Context, readBucket storage.ReadBucket) (*Co
 	return getConfigForBucket(ctx, readBucket)
 }
 
+// GetConfigReaderObjectCloserForBucket gets the storage.ReadObjectCloser to read the bucket's config file.
+//
+// ok is false if the config file does not exist.
+func GetConfigReaderObjectCloserForBucket(
+	ctx context.Context,
+	readBucket storage.ReadBucket,
+) (_ storage.ReadObjectCloser, ok bool, _ error) {
+	return getConfigReadObjectCloserForBucket(ctx, readBucket)
+}
+
 // GetConfigForData gets the Config for the given JSON or YAML data.
 //
 // If the data is of length 0, returns the default config.

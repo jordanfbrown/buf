@@ -54,6 +54,7 @@ import (
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/beta/registry/track/tracklist"
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/breaking"
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/build"
+	"github.com/bufbuild/buf/private/buf/cmd/buf/command/config/configget"
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/config/configinit"
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/config/configlsbreakingrules"
 	"github.com/bufbuild/buf/private/buf/cmd/buf/command/config/configlslintrules"
@@ -120,6 +121,7 @@ func NewRootCommand(name string) *appcmd.Command {
 					configlslintrules.NewCommand("ls-lint-rules", builder),
 					configlsbreakingrules.NewCommand("ls-breaking-rules", builder),
 					configmigratev1beta1.NewCommand("migrate-v1beta1", builder),
+					configget.NewCommand("get", builder),
 				},
 			},
 			{
