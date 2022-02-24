@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/bufbuild/buf/private/buf/bufcli"
 	"github.com/bufbuild/buf/private/bufpkg/bufrpc"
@@ -118,7 +119,7 @@ func run(
 		if err != nil {
 			return err
 		}
-		token = string(data)
+		token = strings.TrimSuffix(string(data), "\n")
 	} else {
 		var err error
 		token, err = bufcli.PromptUserForPassword(container, "Token: ")
